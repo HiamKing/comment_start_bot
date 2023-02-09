@@ -275,19 +275,19 @@ services:
       coinhub_net:
         ipv4_address: 172.20.0.14
 
-  cassandra:
-    image: cassandra:4.0.5
-    container_name: cassandra
-    hostname: cassandra
-    env_file:
-      - ./cassandra/cassandra.env
-    ports:
-      - 9042:9042
-    volumes:
-      - ../storage/cassandra:/var/lib/cassandra
-    networks:
-      coinhub_net:
-        ipv4_address: 172.20.0.15
+  # cassandra:
+  #   image: cassandra:4.0.5
+  #   container_name: cassandra
+  #   hostname: cassandra
+  #   env_file:
+  #     - ./cassandra/cassandra.env
+  #   ports:
+  #     - 9042:9042
+  #   volumes:
+  #     - ../storage/cassandra:/var/lib/cassandra
+  #   networks:
+  #     coinhub_net:
+  #       ipv4_address: 172.20.0.15
 
 networks:
   coinhub_net:
