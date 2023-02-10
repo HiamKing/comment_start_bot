@@ -24,10 +24,9 @@ class AmazonProducer:
     def message_handler(self, message: dict) -> None:
         #  Message from amazon comments crawler
         try:
-            if (len(message.keys()) == 3):
-                amazon_cmt_data = f"{message['title']}[this_is_sep]{message['rating']}[this_is_sep]{message['content']}"
-                self.producer.send('amazonCmtData', bytes(amazon_cmt_data, encoding='utf-8'))
-                self.producer.flush()
+            amazon_cmt_data = f"{message['title']}[this_is_sep]{message['rating']}[this_is_sep]{message['content']}[this_is_sep]{message['category']}[this_is_sep]{message['asin']}[this_is_sep]{message['price']}"
+            self.producer.send('amazonCmtData', bytes(amazon_cmt_data, encoding='utf-8'))
+            self.producer.flush()
         except KafkaError as e:
             self.logger.error(f'An Kafka error happened: {e}')
         except Exception as e:

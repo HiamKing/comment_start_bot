@@ -22,8 +22,10 @@ amz_producer = AmazonProducer()
 
 
 class ReviewScraper:
-    def __init__(self, asin: str) -> None:
+    def __init__(self, category: str, asin: str, price: float) -> None:
+        self.category = category
         self.asin = asin
+        self.price = price
         self.url = f'https://www.amazon.com/product-reviews/{asin}/ref=cm_cr_getr_d_paging_btm_prev_1?ie=UTF8&reviewerType=all_reviews&sortBy=recent&pageNumber='
         self.session = HTMLSession()
         self.headers = {'User-Agent': USER_AGENT}
@@ -58,6 +60,9 @@ class ReviewScraper:
         for item in data:
             try:
                 review = {
+                    'category': self.category,
+                    'asin': self.asin,
+                    'price': self.price,
                     'title': self.get_review_title(item),
                     'rating': self.get_review_rating(item),
                 }
@@ -108,7 +113,17 @@ class ProductScraper:
             if retry > 100 or raw_html:
                 break
 
-        return [data.attrs['data-asin'] for data in raw_html if data.attrs['data-asin'] != '']
+        result_product = []
+        for data in raw_html:
+            if data.attrs['data-asin'] != '':
+                price = data.find('span[class=a-price] span', first=True)
+                if price:
+                    price = price.text.replace('$', '')
+                result_product.append({
+                    'asin': data.attrs['data-asin'],
+                    'price': price
+                })
+        return result_product
 
 
 class CategoryScraper(threading.Thread):
@@ -122,13 +137,13 @@ class CategoryScraper(threading.Thread):
         page = 2
         while True:
             logger.info(f'Start crawling product asins in page {page}')
-            product_asins = self.product_scraper.paginate(page)
+            product_list = self.product_scraper.paginate(page)
             if page > 200:
                 logger.info(f'No more products of category {self.category}')
                 break
 
-            for asin in product_asins:
-                review_scraper = ReviewScraper(asin)
+            for product in product_list:
+                review_scraper = ReviewScraper(self.category, product['asin'], product['price'])
                 review_scraper.start_crawling_reviews()
 
             page += 1

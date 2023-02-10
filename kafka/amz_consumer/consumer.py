@@ -9,7 +9,7 @@ from hdfs import InsecureClient
 import avro.schema
 from avro.datafile import DataFileWriter
 from avro.io import DatumWriter
-from producer import FileEventProducer
+from file_event_producer import FileEventProducer
 
 AMAZON_MESSAGE_SCHEMA = avro.schema.parse(json.dumps({
     'type': 'record',
@@ -17,7 +17,10 @@ AMAZON_MESSAGE_SCHEMA = avro.schema.parse(json.dumps({
     'fields': [
         {'name': 'title', 'type': 'string'},
         {'name': 'rating',  'type': 'float'},
-        {'name': 'content', 'type': 'string'}
+        {'name': 'content', 'type': 'string'},
+        {'name': 'category', 'type': 'string'},
+        {'name': 'asin', 'type': 'string'},
+        {'name': 'price', 'type': ['float', 'null']}
     ]
 }))
 
@@ -85,13 +88,17 @@ class AmazonConsumer:
                         amz_cmt_msg = {
                             'title': decode_msg[0],
                             'rating': float(decode_msg[1]),
-                            'content': decode_msg[2]
+                            'content': decode_msg[2],
+                            'category': decode_msg[3],
+                            'asin': decode_msg[4],
                         }
+                        if decode_msg[5] != 'None':
+                            amz_cmt_msg['price'] = float(decode_msg[5])
                         writer.append(amz_cmt_msg)
                         writer.flush()
 
-                # File size > 20mb flush to hdfs
-                if writer.sync() > 20971520:
+                # File size > 10mb flush to hdfs
+                if writer.sync() > 10485760:
                     self.flush_to_hdfs(tmp_file.name)
                     self.close_tmpfile(tmp_file, writer)
                     tmp_file, writer = self.recreate_tmpfile()
