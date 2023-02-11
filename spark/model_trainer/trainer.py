@@ -1,19 +1,25 @@
 import os
 import logging
+import re
 from logging import Logger
 from logging.handlers import RotatingFileHandler
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, DataFrame
 from kafka import KafkaConsumer
 from train_model import LogisticRegressionPileline
-
 from pyspark.sql.functions import col
+from datetime import datetime
 
 
 # Add your own conf dir
 os.environ['HADOOP_CONF_DIR'] = os.path.abspath(os.getcwd()) + '/spark/conf'
 os.environ['YARN_CONF_DIR'] = os.path.abspath(os.getcwd()) + '/spark/conf'
-EXTERNAL_JARS = 'org.apache.spark:spark-avro_2.12:3.2.2'
+
+EXTERNAL_JARS = 'org.apache.spark:spark-avro_2.12:3.2.2,org.elasticsearch:elasticsearch-spark-30_2.12:7.16.0'
 MODEL_SAVE_PATH = os.path.abspath(os.getcwd()) + '/spark/conf'
+ES_HOST = 'elasticsearch:9200'
+
+DATE_PREFIX = 'amazonCmtData.'
+DATE_EXTENSION = '.avro'
 
 
 class ModelRunner:
@@ -24,24 +30,38 @@ class ModelRunner:
             .config("spark.app.name", "ModelTrainer")\
             .config("spark.master", "yarn")\
             .config("spark.jars.packages", EXTERNAL_JARS)\
+            .config("es.nodes", ES_HOST)\
             .getOrCreate()
         self.model = LogisticRegressionPileline()
-        # .config("spark.sql.extensions", "com.datastax.spark.connector.CassandraSparkExtensions")\
-        # .config("spark.cassandra.connection.host", "172.20.0.15")\
-        # .config("spark.cassandra.auth.username", "cassandra")\
-        # .config("spark.cassandra.auth.password", "cassandra")\
-        # Options if my computer is better...
-        #  .config("spark.driver.memory", "2g")\
-        #  .config("spark.executor.memory", "2g")\
-        #  .config("spark.executor.instances", "2")\
 
-    def run_model(self, file_name: list[str]):
+    def send_train_data_to_es(self, df: DataFrame, data_date: datetime) -> None:
+        append_date = data_date.strftime('%m-%d-%Y')
+        self.logger.info(f'Start appending data to index train_data.{append_date}/docs')
+        df.write.format('es').save(f'train_data.{append_date}/docs')
+        self.logger.info(f'Finish appending data to index train_data.{append_date}/docs')
+
+    def send_predict_data_to_es(self, df: DataFrame, date_date: datetime) -> None:
+        append_date = date_date.strftime('%m-%d-%Y')
+        self.logger.info(f'Start appending data to index predict_data.{append_date}/docs')
+        df.write.format('es').save(f'predict_data.{append_date}/docs')
+        self.logger.info(f'Finish appending data to index predict_data.{append_date}/docs')
+
+    def extract_date_from_file_name(self, file_name: str) -> datetime:
+        found_datetime = re.search('[0-9]{10}', file_name).group(0)
+        return datetime.fromtimestamp(int(found_datetime))
+
+    def run_model(self, file_name: str):
         try:
             df = self.spark.read.format('avro').load(file_name)
             df = df.withColumn("rating", col("rating").cast("integer"))
             train_df, test_df = df.randomSplit([0.8, 0.2], seed=100)
+
             self.model.train(train_df)
-            self.model.predict(test_df)
+            predict_df = self.model.predict(test_df)
+
+            data_date = self.extract_date_from_file_name(file_name)
+            self.send_train_data_to_es(train_df, data_date)
+            self.send_predict_data_to_es(predict_df, data_date)
         except Exception as e:
             self.logger.error(
                 f'An error happened while training model: {e}')
@@ -82,8 +102,9 @@ class ModelTrainer:
                     break
 
                 if new_files:
-                    self.model_runner.run_model(new_files)
-                    raise RuntimeError()
+                    for file in new_files:
+                        self.model_runner.run_model(file)
+                        raise RuntimeError()
                     # self.file_event_consumer.commit()
         except Exception as e:
             self.logger.error(
