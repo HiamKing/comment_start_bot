@@ -93,7 +93,7 @@ class AmazonConsumer:
                             'asin': decode_msg[4],
                         }
                         if decode_msg[5] != 'None':
-                            amz_cmt_msg['price'] = float(decode_msg[5])
+                            amz_cmt_msg['price'] = float(decode_msg[5].replace(',', ''))
                         writer.append(amz_cmt_msg)
                         writer.flush()
 

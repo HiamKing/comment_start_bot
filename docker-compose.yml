@@ -275,19 +275,42 @@ services:
       coinhub_net:
         ipv4_address: 172.20.0.14
 
-  # cassandra:
-  #   image: cassandra:4.0.5
-  #   container_name: cassandra
-  #   hostname: cassandra
-  #   env_file:
-  #     - ./cassandra/cassandra.env
-  #   ports:
-  #     - 9042:9042
-  #   volumes:
-  #     - ../storage/cassandra:/var/lib/cassandra
-  #   networks:
-  #     coinhub_net:
-  #       ipv4_address: 172.20.0.15
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
+    container_name: elasticsearch
+    hostname: elasticsearch
+    environment:
+      - xpack.security.enabled=false
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ../storage/data/elasticsearch:/usr/share/elasticsearch/data
+    networks:
+      coinhub_net:
+        ipv4_address: 172.20.0.15
+    ports:
+      - 9200:9200
+    mem_limit: 1g
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:7.11.0
+    hostname: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    volumes:
+     - ../storage/data/kibana:/usr/share/kibana/data
+    networks:
+      coinhub_net:
+        ipv4_address: 172.20.0.16
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5601:5601
 
 networks:
   coinhub_net:

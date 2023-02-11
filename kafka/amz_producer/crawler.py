@@ -136,17 +136,19 @@ class CategoryScraper(threading.Thread):
         logger.info(f'Start crawling reviews of category {self.category}')
         page = 2
         while True:
-            logger.info(f'Start crawling product asins in page {page}')
-            product_list = self.product_scraper.paginate(page)
+            try:
+                logger.info(f'Start crawling product asins in page {page}')
+                product_list = self.product_scraper.paginate(page)
+
+                for product in product_list:
+                    review_scraper = ReviewScraper(self.category, product['asin'], product['price'])
+                    review_scraper.start_crawling_reviews()
+            except Exception as e:
+                logger.error(f'An error happened when crawling product asins in page {page}: {e}')
+            page += 1
             if page > 200:
                 logger.info(f'No more products of category {self.category}')
                 break
-
-            for product in product_list:
-                review_scraper = ReviewScraper(self.category, product['asin'], product['price'])
-                review_scraper.start_crawling_reviews()
-
-            page += 1
 
         logger.info(f'End crawling reviews of category {self.category}')
 
