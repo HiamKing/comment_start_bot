@@ -1,7 +1,6 @@
 import logging
 import os
 import tempfile
-import datetime
 import json
 from logging.handlers import RotatingFileHandler
 from kafka import KafkaConsumer
@@ -10,6 +9,8 @@ import avro.schema
 from avro.datafile import DataFileWriter
 from avro.io import DatumWriter
 from file_event_producer import FileEventProducer
+from datetime import datetime
+
 
 AMAZON_MESSAGE_SCHEMA = avro.schema.parse(json.dumps({
     'type': 'record',
@@ -20,7 +21,8 @@ AMAZON_MESSAGE_SCHEMA = avro.schema.parse(json.dumps({
         {'name': 'content', 'type': 'string'},
         {'name': 'category', 'type': 'string'},
         {'name': 'asin', 'type': 'string'},
-        {'name': 'price', 'type': ['float', 'null']}
+        {'name': 'price', 'type': ['float', 'null']},
+        {'name': 'crawled_timestamp', 'type': 'long'}
     ]
 }))
 
@@ -47,7 +49,7 @@ class AmazonConsumer:
         self.hdfs_client = InsecureClient('http://localhost:9870', user='root')
 
     def flush_to_hdfs(self, tmp_file_name: str) -> None:
-        current_time = datetime.datetime.now()
+        current_time = datetime.now()
         hdfs_filename = '/amazonCmtData/' +\
             str(current_time.year) + '/' +\
             str(current_time.month) + '/' +\
@@ -94,6 +96,10 @@ class AmazonConsumer:
                         }
                         if decode_msg[5] != 'None':
                             amz_cmt_msg['price'] = float(decode_msg[5].replace(',', ''))
+                        if len(decode_msg) < 7:
+                            amz_cmt_msg['crawled_timestamp'] = int(datetime.now().timestamp())
+                        else:
+                            amz_cmt_msg['crawled_timestamp'] = int(float(decode_msg[6]))
                         writer.append(amz_cmt_msg)
                         writer.flush()
 

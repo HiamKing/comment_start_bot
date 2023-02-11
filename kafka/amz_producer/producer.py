@@ -2,6 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
+from datetime import datetime
 import os
 
 
@@ -24,7 +25,8 @@ class AmazonProducer:
     def message_handler(self, message: dict) -> None:
         #  Message from amazon comments crawler
         try:
-            amazon_cmt_data = f"{message['title']}[this_is_sep]{message['rating']}[this_is_sep]{message['content']}[this_is_sep]{message['category']}[this_is_sep]{message['asin']}[this_is_sep]{message['price']}"
+            crawled_timestamp = int(datetime.now().timestamp())
+            amazon_cmt_data = f"{message['title']}[this_is_sep]{message['rating']}[this_is_sep]{message['content']}[this_is_sep]{message['category']}[this_is_sep]{message['asin']}[this_is_sep]{message['price']}[this_is_sep]{crawled_timestamp}"
             self.producer.send('amazonCmtData', bytes(amazon_cmt_data, encoding='utf-8'))
             self.producer.flush()
         except KafkaError as e:
