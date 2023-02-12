@@ -16,15 +16,13 @@ class SentimentAnalysisPileline:
             self.pretrained_path = save_folder + "/" + pretrained_file
         if load_model:
             print(f"Load pretrained model from {self.pretrained_path}!")
-            if self.method == "multi-class":
-                clsf_model = LogisticRegression(maxIter=10, regParam=0.01, labelCol='rating')
-            self.clsf_model = clsf_model.load(self.pretrained_path)
+            self.pipeline = Pipeline.load(self.pretrained_path)
         else:
             print("Train model from scratch!")
             if self.method == "multi-class":
                 self.clsf_model = LogisticRegression(maxIter=10, regParam=0.01, labelCol='rating')
-        self.hashing_tf = HashingTF(inputCol="process", outputCol="features")
-        self.pipeline = Pipeline(stages=[self.hashing_tf, self.clsf_model])
+                self.hashing_tf = HashingTF(inputCol="process", outputCol="features")
+                self.pipeline = Pipeline(stages=[self.hashing_tf, self.clsf_model])
         self.save_model = save_model
         self.save_folder = save_folder
 
@@ -38,7 +36,7 @@ class SentimentAnalysisPileline:
             date_string = "{}{:02d}{:02d}{:02d}{:02d}{:02d}".format(current_datetime.year, current_datetime.month,
                                                                     current_datetime.day, current_datetime.hour, current_datetime.minute, current_datetime.second)
 
-            self.model.save(f"{self.save_folder}/{self.method}_{date_string}")
+            self.pipeline.save(f"{self.save_folder}/{self.method}_{date_string}")
 
             print(f"Save {self.method} model at: {self.save_folder}/{self.method}_{date_string}")
             return f'{self.method}_{date_string}'

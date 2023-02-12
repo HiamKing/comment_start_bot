@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 from pyspark.sql import SparkSession, DataFrame
 from kafka import KafkaConsumer
 from spark.model_trainer.train_model import SentimentAnalysisPileline
-from pyspark.sql.functions import col, lit, udf
+from pyspark.sql.functions import col, lit, udf, date_format
 from pyspark.sql.types import ArrayType, StringType
 from datetime import datetime
 from nltk.corpus import stopwords
@@ -73,19 +73,24 @@ class ModelRunner:
     def send_train_data_to_es(self, df: DataFrame, data_date: datetime) -> None:
         append_date = data_date.strftime('%m-%d-%Y')
         if 'crawled_timestamp' not in df.columns:
-            df = df.withColumn('crawled_timestamp', lit(int(datetime.now().timestamp())).cast('timestamp'))
+            df = df.withColumn('crawled_timestamp', date_format(lit(int(datetime.now().timestamp())).cast('timestamp'), "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+        else:
+            df = df.withColumn('crawled_timestamp', date_format(col('crawled_timestamp').cast('timestamp'), "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
         if 'process' in df.columns:
             df = df.drop('process')
         self.logger.info(f'Start appending data to index train_data.{append_date}/docs')
-        df.write.format('es').save(f'train_data.{append_date}/docs')
+        df.write.format('es').mode('append').save(f'train_data.{append_date}/docs')
         self.logger.info(f'Finish appending data to index train_data.{append_date}/docs')
 
     def send_predict_data_to_es(self, df: DataFrame, date_date: datetime) -> None:
         append_date = date_date.strftime('%m-%d-%Y')
         if 'crawled_timestamp' not in df.columns:
-            df = df.withColumn('crawled_timestamp', lit(int(datetime.now().timestamp())).cast('timestamp'))
+            df = df.withColumn('crawled_timestamp', date_format(lit(int(datetime.now().timestamp())).cast('timestamp'), "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+        else:
+            df = df.withColumn('crawled_timestamp', date_format(col('crawled_timestamp').cast('timestamp'), "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+        df = df.withColumn('prediction', col('prediction').cast('integer'))
         self.logger.info(f'Start appending data to index predict_data.{append_date}/docs')
-        df.write.format('es').save(f'predict_data.{append_date}/docs')
+        df.write.format('es').mode('append').save(f'predict_data.{append_date}/docs')
         self.logger.info(f'Finish appending data to index predict_data.{append_date}/docs')
 
     def extract_date_from_file_name(self, file_name: str) -> datetime:

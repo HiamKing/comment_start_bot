@@ -2,7 +2,7 @@ from datetime import datetime
 from pyspark.sql.pandas.group_ops import DataFrame
 from pyspark.ml.feature import HashingTF, Tokenizer
 from pyspark.ml import Pipeline
-from pyspark.ml.classification import LogisticRegression
+from pyspark.ml.classification import LogisticRegression, LogisticRegressionModel
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 
 TRAINING_COLS = ['word', 'features', 'rawPrediction', 'probability']
@@ -12,7 +12,7 @@ class LogisticRegressionPileline:
     def __init__(self, save_path=None, load_model=False, save_model=False):
         if load_model:
             print(f"Load pretrained model from {save_path}!")
-            self.lr_model = LogisticRegression(maxIter=10, regParam=0.01, labelCol='rating')
+            self.lr_model = LogisticRegressionModel(maxIter=10, regParam=0.01, labelCol='rating')
             self.lr_model.load(save_path)
         else:
             print("Train model from scratch!")
